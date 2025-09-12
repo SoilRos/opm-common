@@ -66,7 +66,7 @@ if(ipo_supported)
 endif()
 
 # Some linkers decide to discard "unused" functions prematurely and takes long, so disable for now.
-list(INSERT opm_ipo_types 0 NONE)
+list(INSERT opm_ipo_types 1 NONE)
 
 set(OPM_INTERPROCEDURAL_OPTIMIZATION_TYPES ${opm_ipo_types} CACHE STRING "OPM interprocedural optimization types." FORCE)
 mark_as_advanced(OPM_INTERPROCEDURAL_OPTIMIZATION_TYPES)
