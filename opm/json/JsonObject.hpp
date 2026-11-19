@@ -23,6 +23,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <string>
+#include <vector>
 
 struct cJSON;
 
@@ -46,6 +47,8 @@ namespace Json {
         void add_item(const std::string& key, double value);
         void add_item(const std::string& key, int value);
         void add_item(const std::string& key, const std::string& value);
+        // Not an add_item() overload: a string literal would convert to bool.
+        void add_bool(const std::string& key, bool value);
         JsonObject add_array(const std::string& key);
         JsonObject add_object(const std::string& key);
         std::string dump() const;
@@ -67,6 +70,12 @@ namespace Json {
 
         bool is_array( ) const;
         bool is_object( ) const;
+        bool is_bool( ) const;
+        bool as_bool() const;
+
+        // The member names of an object, in the order of the input.
+        // Throws std::invalid_argument if this is not an object.
+        std::vector<std::string> keys() const;
 
         std::size_t size() const;
     private:

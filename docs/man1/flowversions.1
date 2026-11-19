@@ -1,0 +1,261 @@
+.TH FLOWVERSIONS "1" "November 2026" "flowversions" "User Commands"
+.SH NAME
+flowversions \- list the OPM Flow versions found, and which one a name selects
+.SH SYNOPSIS
+.B flowversions
+[\fBlist\fR] [\fB\-\-json\fR]
+.br
+.B flowversions which
+[\fIversion\fR]
+.br
+.B flowversions show
+[\fIversion\fR] [\fB\-\-json\fR]
+.SH DESCRIPTION
+.B flowversions
+finds the Flow versions on this machine and in the configuration, and shows
+what each one is and which one a name selects.
+.BR runflow (1)
+finds and selects versions in exactly the same way, so
+\fBflowversions which\fR \fIversion\fR names the Flow that
+\fBrunflow \-v\fR \fIversion\fR runs.
+.SH COMMANDS
+.TP
+\fBlist\fR (the default)
+One line per version found, in the order found (see HOW VERSIONS ARE
+FOUND), after a header line:
+.RS
+.PP
+.nf
+  NAMES  OPM VERSION  BUILD    FLOW
+* dev    2027.04\-pre  Release  /home/user/opm/build/bin/Release/flow
+  flow   2026.04      \-        /usr/bin/flow
+.fi
+.TP
+.B *
+marks the default version, used without \fB\-v\fR.
+.TP
+.B NAMES
+the names from the configuration, separated by commas; without one, the
+names of the executable, e.g. \fBflowrc47\fR.
+.TP
+.B OPM VERSION
+.TQ
+.B BUILD
+the OPM version and build type (e.g. \fBRelease\fR, \fBDebug\fR), as the
+version says itself (see WHAT A VERSION IS); \fB\-\fR where it does not say.
+.TP
+.B FLOW
+the executable, with symbolic links resolved.
+.RE
+.TP
+.BR which " [" \fIversion\fR ]
+Prints the executable that \fIversion\fR selects, or without \fIversion\fR
+the default version's: one line, for scripts, e.g.
+\fB"$(flowversions which dev)" \-\-help\fR.
+.TP
+.BR show " [" \fIversion\fR ]
+Everything known about one version (without \fIversion\fR, the default):
+.RS
+.TP
+.B flow
+the executable, with symbolic links resolved;
+.TP
+.B names
+.TQ
+.B executable names
+the names it can be selected by (see SELECTING A VERSION);
+.TP
+.B OPM version
+.TQ
+.B git hash
+.TQ
+.B build time
+.TQ
+.B build type
+.TQ
+.B MPI
+what it says about itself (see WHAT A VERSION IS); the git hash ends with
+\fB*\fR when it was built from changed sources; MPI is the library it was built
+with, or \fBnone\fR;
+.TP
+.B pythonpath
+its \fBpythonpath\fR, or the one \fBsearch.pythonpath\fR gives it, put
+before \fBPYTHONPATH\fR when it runs;
+.TP
+.B launchinfo
+the
+.BR opmlaunchinfo (1)
+that reads its decks for runflow: the configured one, else one in the same
+directory as \fBflow\fR; or none, then runflow's own parser reads them;
+.TP
+.B launcher
+the MPI launcher its runs here (\fBrunflow \-i\fR) would use, how it was
+found (as configured, the version's \fBlauncher\fR, next to \fBflow\fR, or in
+\fBPATH\fR) and
+whether it belongs to Flow's MPI (see
+.BR runflow (1),
+RUNNING);
+.TP
+.B default
+whether it is the default version;
+.TP
+.B found by
+each way it was found: \fBconfig\fR \fIfile\fR, \fBsearch\fR
+\fIpattern\fR, \fBPATH\fR, or \fBgiven path\fR.
+.RE
+.SH OPTIONS
+.TP
+.B \-\-json
+For \fBlist\fR and \fBshow\fR: print JSON for other programs (see JSON OUTPUT).
+.TP
+.BR \-h ", " \-\-help
+Print a short usage.
+.SH SELECTING A VERSION
+\fIversion\fR, here and in \fBrunflow \-v\fR, is tried as, in this order:
+.IP 1. 4
+a path: a value containing \fB/\fR, or the name of an existing file, e.g.
+\fB~/opm/build/bin/flow\fR or \fB./flow\fR;
+.IP 2. 4
+a name from the configuration, e.g. \fBdev\fR;
+.IP 3. 4
+an executable's file name, e.g. \fBflowrc47\fR;
+.IP 4. 4
+an OPM version, e.g. \fB2026.04\fR.
+.PP
+The first rule that matches decides, so a configured name wins over an
+executable that happens to have that name. If one rule matches several
+versions, nothing is chosen: the error lists them, and giving one a name in
+the configuration tells them apart.
+.PP
+The default version is \fBdefault_version\fR of the configuration (itself
+selected by these rules); without it, the first \fBflow\fR in \fBPATH\fR.
+.SH HOW VERSIONS ARE FOUND
+In this order:
+.IP 1. 4
+the named \fBversions\fR of the configuration;
+.IP 2. 4
+every executable that each pattern of \fBsearch.flow\fR matches, in name
+order, e.g. \fB/usr/lib64/openmpi/bin/flow*\fR;
+.IP 3. 4
+\fBflow\fR in each directory of \fBPATH\fR.
+.PP
+An executable found more than once, also through a symbolic link, is one
+version, with every name and path it was found as. A configured version
+whose \fBflow\fR is not an executable, a pattern that matches directories
+instead of executables, a directory that cannot be read, or an
+executable that disappears while it is looked at, is reported as a warning
+and skipped; the others are still found.
+.SH WHAT A VERSION IS
+Each version is asked about itself, only when it is needed (to list it, or to
+run it) and at most once:
+.IP 1. 4
+\fBflow \-\-build\-info\fR, in Flow versions that have it: the OPM version, git
+hash, build time, build type and MPI library;
+.IP 2. 4
+otherwise \fBflow \-\-version\fR: the OPM version only.
+.PP
+Both answer without starting MPI, within a fraction of a second. A version
+that answers neither is listed without an OPM version.
+.SH JSON OUTPUT
+\fBlist \-\-json\fR prints \fB{"versions": [\fR...\fB]}\fR, a list of versions
+in the order found; \fBshow \-\-json\fR prints one version. A version is an
+object with these members; those that are not known are left out:
+.TP
+\fBflow\fR (string)
+the executable, with symbolic links resolved;
+.TP
+\fBnames\fR, \fBexecutable_names\fR (lists of strings)
+.TP
+\fBopm_version\fR, \fBgit_hash\fR, \fBbuild_time\fR, \fBbuild_type\fR, \fBmpi\fR (strings)
+.TP
+\fBpythonpath\fR, \fBlaunchinfo\fR (strings)
+.TP
+\fBdefault\fR (true or false)
+.TP
+\fBfound_by\fR (list of strings)
+.TP
+\fBlauncher\fR (object; \fBshow\fR only)
+\fBprogram\fR (the launcher's path) and \fBfound\fR (how), if one was found,
+and \fBcheck\fR (the result of the check against Flow's MPI, or why there is
+none).
+.PP
+Members may be added in later versions; programs reading this output should
+ignore those they do not know.
+.SH CONFIGURATION
+\fBflowversions\fR reads the same \fBrunflow.json\fR files as
+.BR runflow (1):
+the installation's, \fB~/.runflow.json\fR, \fBrunflow.json\fR in the current
+directory and \fB$RUNFLOW_CONFIG\fR, each overriding the one before. It uses
+the version settings and the \fBlocal\fR launcher:
+.TP
+\fBdefault_version\fR (string)
+the default version;
+.TP
+\fBsearch.flow\fR (list of patterns)
+executables that are versions, e.g. \fB["/project/res/bin/flow*"]\fR;
+.TP
+\fBsearch.pythonpath\fR (list of patterns)
+the \fBPYTHONPATH\fR of versions without their own: \fB{name}\fR is the
+version's file name, and wildcards match existing directories;
+.TP
+\fBversions\fR (object of named versions)
+each with \fBflow\fR (required), and optionally \fBlaunchinfo\fR,
+\fBlauncher\fR and \fBpythonpath\fR (a list);
+.TP
+\fBlocal.launcher\fR, \fBlocal.launcher_options\fR
+the MPI launcher of runs here, shown by \fBshow\fR.
+.PP
+In lists, \fB"@inherit"\fR stands for the earlier files' list.
+.PP
+.BR runflow (1),
+CONFIGURATION, describes every setting, the files and how they combine, with
+examples.
+.SH EXAMPLES
+Which versions are there, and which is the default:
+.PP
+.RS
+.nf
+flowversions
+.fi
+.RE
+.PP
+Everything about the version \fBrunflow \-v 2026.04\fR would run:
+.PP
+.RS
+.nf
+flowversions show 2026.04
+.fi
+.RE
+.PP
+The OPM versions of all versions, in a script:
+.PP
+.RS
+.nf
+flowversions list \-\-json | python3 \-c \(aqimport json, sys
+for v in json.load(sys.stdin)["versions"]:
+    print(v.get("opm_version", "?"), v["flow"])\(aq
+.fi
+.RE
+.SH DIAGNOSTICS
+Messages go to standard error, after the output.
+.TP
+\fBFlow version not found:\fR \fIversion\fR
+No rule of SELECTING A VERSION matches: \fBflowversions list\fR shows what is
+there.
+.TP
+\fBFlow version\fR \fIversion\fR \fBis ambiguous\fR
+One rule matches several versions, listed after the message: select one by
+its path, or name it in the configuration.
+.TP
+\fBwarning:\fR ...
+A problem that did not stop the search, e.g. a configured version that is not
+an executable, a search pattern that matches directories, a directory that
+cannot be read, or a setting of a
+newer runflow.
+.SH EXIT STATUS
+0 on success; 1 if a version is not found or is ambiguous; 2 for wrong
+arguments, or a configuration file that cannot be read (not valid JSON, a
+setting of the wrong type, or \fB$RUNFLOW_CONFIG\fR naming a missing file).
+.SH SEE ALSO
+.BR runflow (1),
+.BR opmlaunchinfo (1)

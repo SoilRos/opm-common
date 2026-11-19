@@ -1,0 +1,161 @@
+.TH OPMLAUNCHINFO "1" "November 2026" "opmlaunchinfo" "User Commands"
+.SH NAME
+opmlaunchinfo \- print what an OPM deck needs to be launched
+.SH SYNOPSIS
+.B opmlaunchinfo
+\fIdeck\fR
+.br
+.B opmlaunchinfo
+\fB\-h\fR | \fB\-\-help\fR
+.SH DESCRIPTION
+.B opmlaunchinfo
+reads \fIdeck\fR as the Flow of the same OPM version reads it, and prints on
+standard output, as JSON, what is needed to launch it. Today that is the
+slaves of a reservoir coupling master: a deck with the \fBSLAVES\fR keyword
+makes Flow start one more simulation per slave, with the processes the deck
+gives it (\fBNUM_PE\fR), and the job must have room for all of them.
+.PP
+It is mostly run by
+.BR runflow (1),
+which needs that number before it starts or submits a run, but it can be run
+by hand to see what a deck asks for.
+.SH READING THE DECK
+\fIdeck\fR is the deck file, e.g. \fBMASTER.DATA\fR; files it includes are
+found relative to it, as Flow finds them.
+.PP
+It is read with the parser of the opm\-common it was built with, with Flow's
+default settings (not strict): a deck that Flow of this version reads, it
+reads too, and it refuses what Flow refuses in \fBSLAVES\fR. Each OPM
+installation has its own \fBopmlaunchinfo\fR, so that a deck is read as the
+Flow it will run with reads it.
+.PP
+Only the RUNSPEC and SCHEDULE sections are read when the deck has its section
+keywords (RUNSPEC, GRID, PROPS, SOLUTION, SCHEDULE) in the deck file itself,
+in the usual order; then large grid files are not opened, and even a full
+field model is read in well under a second. Otherwise, e.g. when SCHEDULE is
+in an included file, the whole deck is read.
+.SH OUTPUT
+One JSON object:
+.PP
+.RS
+.nf
+{ "schema": 1,
+  "slaves": [ { "name": "RES\-1", "deck": "RC\-01_MOD1_HIST",
+                "directory": "../mod1", "num_pe": 4 },
+              { "name": "RES\-2", "deck": "RC\-01_MOD2_HIST",
+                "directory": "../mod2", "num_pe": 1 } ] }
+.fi
+.RE
+.TP
+\fBschema\fR (integer)
+The version of this format, now \fB1\fR (see COMPATIBILITY).
+.TP
+\fBslaves\fR (list)
+One object per slave of \fBSLAVES\fR, in the deck's order; empty for a deck
+without \fBSLAVES\fR, which is not a coupling master. A name given twice
+counts once, with its last record, as in Flow.
+.RS
+.TP
+\fBname\fR (string)
+the slave's name (item 1, SLAVE_RESERVOIR);
+.TP
+\fBdeck\fR (string)
+its deck, without \fB.DATA\fR (item 2, SLAVE_ECLBASE);
+.TP
+\fBdirectory\fR (string)
+the directory of its deck, as written in the deck (item 4, DIRECTORY), e.g.
+\fB../mod1\fR; Flow takes it relative to the directory the master runs in;
+.TP
+\fBnum_pe\fR (integer)
+the processes Flow starts it with (item 5, NUM_PE; 1 if defaulted).
+.RE
+.PP
+The slots a coupled run needs are its own processes plus the sum of
+\fBnum_pe\fR: \fB1 + 4 + 1 = 6\fR for a one\-process master with the slaves
+above.
+.SH COMPATIBILITY
+The output is a contract between versions: a \fBrunflow\fR of one OPM version
+reads the output of another version's \fBopmlaunchinfo\fR. So members are only
+ever added to schema 1, never changed or removed; a change of meaning gets a
+new \fBschema\fR number. Programs that read the output must ignore members they
+do not know, and refuse a \fBschema\fR newer than they know.
+.SH HOW RUNFLOW USES IT
+For each run,
+.BR runflow (1)
+looks for the \fBopmlaunchinfo\fR of the Flow version it runs, in this order:
+.IP 1. 4
+the version's \fBlaunchinfo\fR in \fBrunflow.json\fR (an error if it cannot be
+run);
+.IP 2. 4
+\fBopmlaunchinfo\fR in the same directory as that version's \fBflow\fR, as an
+installation has them;
+.IP 3. 4
+none: runflow reads the deck with its own parser, which is a newer one for
+versions released before \fBopmlaunchinfo\fR existed.
+.PP
+\fBflowversions show\fR
+.IR version
+names the one found. In a build tree, \fBflow\fR and \fBopmlaunchinfo\fR are
+in different directories (opm\-simulators', opm\-common's), so a build is
+given its \fBlaunchinfo\fR in the configuration.
+.SH EXAMPLES
+A coupling master:
+.PP
+.RS
+.nf
+$ opmlaunchinfo RC\-01_MAST_HIST.DATA
+{
+	"schema":	1,
+	"slaves":	[{
+			"name":	"RES\-1",
+			"deck":	"RC\-01_MOD1_HIST",
+			"directory":	"../mod1",
+			"num_pe":	4
+		}, {
+			"name":	"RES\-2",
+			"deck":	"RC\-01_MOD2_HIST",
+			"directory":	"../mod2",
+			"num_pe":	1
+		}]
+}
+.fi
+.RE
+.PP
+Any other deck:
+.PP
+.RS
+.nf
+$ opmlaunchinfo SPE1CASE2.DATA
+{
+	"schema":	1,
+	"slaves":	[]
+}
+.fi
+.RE
+.PP
+The total processes of the slaves, in a script:
+.PP
+.RS
+.nf
+opmlaunchinfo MASTER.DATA | python3 \-c \(aqimport json, sys
+print(sum(s["num_pe"] for s in json.load(sys.stdin)["slaves"]))\(aq
+.fi
+.RE
+.SH DIAGNOSTICS
+Errors go to standard error, as \fBopmlaunchinfo:\fR \fImessage\fR, and
+nothing is printed on standard output:
+.TP
+\fBcannot read\fR \fIdeck\fR\fB:\fR \fIreason\fR
+The deck, or a file it includes, does not exist or cannot be read, or the
+parser refuses it; the reason is the parser's.
+.TP
+\fBthe SLAVES keyword can only be given once in the schedule\fR
+.TQ
+\fBSLAVES\fR \fIname\fR\fB: the number of processors must be positive\fR
+What Flow also refuses.
+.SH EXIT STATUS
+0 when the information is printed; 1 if the deck cannot be read or Flow would
+refuse its \fBSLAVES\fR; 2 for wrong arguments.
+.SH SEE ALSO
+.BR runflow (1),
+.BR flowversions (1)

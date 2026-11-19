@@ -368,6 +368,23 @@ list(APPEND MAIN_SOURCE_FILES
   opm/io/eclipse/rst/state.cpp
   opm/io/eclipse/rst/well.cpp
   opm/json/JsonObject.cpp
+  opm/runflow/cli/CommandLine.cpp
+  opm/runflow/cli/RunflowConfig.cpp
+  opm/runflow/config/ConfigFiles.cpp
+  opm/runflow/launch/LaunchInfo.cpp
+  opm/runflow/launch/LaunchPlan.cpp
+  opm/runflow/launch/Launcher.cpp
+  opm/runflow/process/Process.cpp
+  opm/runflow/submit/JobSpec.cpp
+  opm/runflow/submit/Local.cpp
+  opm/runflow/submit/Lsf.cpp
+  opm/runflow/submit/RunLog.cpp
+  opm/runflow/versions/BuildInfo.cpp
+  opm/runflow/versions/Candidates.cpp
+  opm/runflow/versions/Installation.cpp
+  opm/runflow/versions/PythonPath.cpp
+  opm/runflow/versions/VersionRegistry.cpp
+  opm/runflow/versions/VersionsConfig.cpp
   opm/material/common/Spline.cpp
   opm/material/common/Tabulated1DFunction.cpp
   opm/material/common/TridiagonalMatrix.cpp
@@ -495,7 +512,13 @@ list(APPEND PYTHON_CXX_DEPENDS ${PYTHON_CXX_SOURCE_FILES}
   python/cxx/export.hpp
 )
 
+# runflow, flowversions and opmlaunchinfo are built and installed always (not
+# only with BUILD_EXAMPLES): they are user tools, and runflow looks for
+# opmlaunchinfo next to each installation's flow.
 list(APPEND ADDITIONAL_SOURCE_FILES
+  examples/flowversions.cpp
+  examples/opmlaunchinfo.cpp
+  examples/runflow.cpp
   test_util/arraylist.cpp
   test_util/compareECL.cpp
   test_util/convertECL.cpp
@@ -1344,6 +1367,23 @@ list(APPEND PUBLIC_HEADER_FILES
   opm/io/eclipse/rst/udq.hpp
   opm/io/eclipse/rst/well.hpp
   opm/json/JsonObject.hpp
+  opm/runflow/cli/CommandLine.hpp
+  opm/runflow/cli/RunflowConfig.hpp
+  opm/runflow/config/ConfigFiles.hpp
+  opm/runflow/launch/LaunchInfo.hpp
+  opm/runflow/launch/LaunchPlan.hpp
+  opm/runflow/launch/Launcher.hpp
+  opm/runflow/process/Process.hpp
+  opm/runflow/submit/JobSpec.hpp
+  opm/runflow/submit/Local.hpp
+  opm/runflow/submit/Lsf.hpp
+  opm/runflow/submit/RunLog.hpp
+  opm/runflow/versions/BuildInfo.hpp
+  opm/runflow/versions/Candidates.hpp
+  opm/runflow/versions/Installation.hpp
+  opm/runflow/versions/PythonPath.hpp
+  opm/runflow/versions/VersionRegistry.hpp
+  opm/runflow/versions/VersionsConfig.hpp
   opm/material/Constants.hpp
   opm/material/IdealGas.hpp
   opm/material/binarycoefficients/Air_Mesitylene.hpp

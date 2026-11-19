@@ -465,6 +465,14 @@ if(NOT OPM_ENABLE_PYTHON)
 endif()
 
 include(GNUInstallDirs)
+# runflow: the installation's runflow.json is found from the program's own
+# directory, through the path from the bin directory to the sysconfdir
+# ("../etc", or "../../etc" for a /usr installation), so that a moved
+# installation keeps its configuration.
+file(RELATIVE_PATH runflow_bin_to_sysconf
+  ${CMAKE_INSTALL_FULL_BINDIR} ${CMAKE_INSTALL_FULL_SYSCONFDIR})
+set_property(SOURCE opm/runflow/config/ConfigFiles.cpp APPEND PROPERTY
+  COMPILE_DEFINITIONS "OPM_RUNFLOW_BIN_TO_SYSCONF=\"${runflow_bin_to_sysconf}\"")
 # We need to define this variable in the installed cmake config file.
 set(OPM_PROJECT_EXTRA_CODE_INSTALLED
   "set(OPM_MACROS_ROOT ${CMAKE_INSTALL_FULL_DATADIR}/opm)

@@ -202,4 +202,50 @@ if (Boost_UNIT_TEST_FRAMEWORK_FOUND)
   )
   list(APPEND EXTRA_TESTS jsonTests)
 
+  # runflow: configuration files and Flow versions
+  opm_add_test(RunFlowVersionsTests
+    SOURCES
+      tests/runflow/test_RunFlowVersions.cpp
+    LIBRARIES
+      ${TEST_LIBS}
+  )
+  list(APPEND EXTRA_TESTS RunFlowVersionsTests)
+
+  # runflow: running here, submitting to LSF (a stand-in bsub), the run log
+  opm_add_test(RunFlowSubmitTests
+    SOURCES
+      tests/runflow/test_RunFlowSubmit.cpp
+    LIBRARIES
+      ${TEST_LIBS}
+  )
+  list(APPEND EXTRA_TESTS RunFlowSubmitTests)
+
+  # runflow: what a deck needs (reservoir coupling) and the launch plan
+  opm_add_test(RunFlowLaunchTests
+    SOURCES
+      tests/runflow/test_RunFlowLaunch.cpp
+    LIBRARIES
+      ${TEST_LIBS}
+    DEPENDS
+      opmlaunchinfo
+    TEST_ARGS
+      --
+      $<TARGET_FILE:opmlaunchinfo>
+  )
+  list(APPEND EXTRA_TESTS RunFlowLaunchTests)
+
+  # runflow: the command line, runflow.json and the program end to end
+  opm_add_test(RunFlowCommandTests
+    SOURCES
+      tests/runflow/test_RunFlowCommand.cpp
+    LIBRARIES
+      ${TEST_LIBS}
+    DEPENDS
+      runflow
+    TEST_ARGS
+      --
+      $<TARGET_FILE:runflow>
+  )
+  list(APPEND EXTRA_TESTS RunFlowCommandTests)
+
 endif()

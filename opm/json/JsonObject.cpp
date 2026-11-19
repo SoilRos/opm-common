@@ -54,6 +54,10 @@ namespace Json {
         cJSON_AddStringToObject(this->root, key.c_str(), value.c_str());
     }
 
+    void JsonObject::add_bool(const std::string& key, bool value) {
+        cJSON_AddBoolToObject(this->root, key.c_str(), value);
+    }
+
     void JsonObject::add_item(const std::string& key, int value) {
         cJSON_AddNumberToObject(this->root, key.c_str(), value);
     }
@@ -184,6 +188,28 @@ namespace Json {
             return true;
         else
             return false;
+    }
+
+
+    bool JsonObject::is_bool( ) const {
+        return cJSON_IsBool(this->root);
+    }
+
+
+    bool JsonObject::as_bool() const {
+        if (!this->is_bool())
+            throw std::invalid_argument("Object is not a boolean.");
+        return cJSON_IsTrue(this->root);
+    }
+
+
+    std::vector<std::string> JsonObject::keys() const {
+        if (!this->is_object())
+            throw std::invalid_argument("Object is not a json object.");
+        std::vector<std::string> names;
+        for (const cJSON* child = this->root->child; child; child = child->next)
+            names.emplace_back(child->string);
+        return names;
     }
 
 

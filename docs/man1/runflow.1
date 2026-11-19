@@ -1,0 +1,410 @@
+.TH RUNFLOW "1" "November 2026" "runflow" "User Commands"
+.SH NAME
+runflow \- run OPM Flow on a deck, here or as an LSF job
+.SH SYNOPSIS
+.B runflow
+[\fB\-q\fR \fIqueue\fR] [\fB\-i\fR] [\fB\-l\fR] [\fB\-v\fR \fIversion\fR]
+[\fB\-n\fR \fIprocesses\fR] [\fB\-o\fR \fIoptions\fR] [\fB\-\-dry\-run\fR]
+\fIinput_deck\fR
+.SH DESCRIPTION
+.B runflow
+runs a Flow version on \fIinput_deck\fR: as an LSF job (the default), or here
+and now (\fB\-i\fR). It chooses the version, starts Flow with MPI when needed,
+sets the version's \fBPYTHONPATH\fR, and reserves what a reservoir coupling
+deck needs for its slaves.
+.PP
+Flow runs in the deck's directory, on \fIROOT\fB.DATA\fR, where \fIROOT\fR is
+the deck's file name up to its first dot: \fBcases/A\fR, \fBcases/A.DATA\fR and
+\fBcases/A.B.DATA\fR all run \fBcases/A.DATA\fR.
+.SH OPTIONS
+Long options may also be written with one dash (\fB\-np\fR, \fB\-op\fR,
+\fB\-queue\fR) and shortened while unambiguous; options may come after the deck.
+.TP
+\fB\-q\fR, \fB\-\-queue\fR \fIqueue\fR
+The LSF queue. Default: \fBlsf.default_queue\fR in \fBrunflow.json\fR, else
+LSF's default queue.
+.TP
+\fB\-i\fR, \fB\-\-interactive\fR
+Run here, without a queue. Flow's output goes to the terminal and to the log
+files.
+.TP
+\fB\-l\fR, \fB\-\-list\fR
+List the Flow versions, with their OPM version and executable.
+.TP
+\fB\-v\fR, \fB\-\-version\fR \fIversion\fR
+The Flow version: a path, a configured name, an executable's name (e.g.
+\fBflowrc47\fR) or an OPM version (e.g. \fB2026.04\fR); see
+.BR flowversions (1).
+Default: \fBdefault_version\fR in \fBrunflow.json\fR, else the first
+\fBflow\fR in \fBPATH\fR.
+.TP
+\fB\-n\fR, \fB\-\-np\fR \fIprocesses\fR
+Flow's MPI processes (default 1). For a reservoir coupling master, the
+master's processes: the slaves' come from the deck (see below).
+.TP
+\fB\-o\fR, \fB\-\-op\fR \fIoptions\fR
+Flow's options, as one argument split at spaces, e.g.
+\fB\-o '\-\-enable\-esmry=true \-\-max\-time\-step\-in\-days=1.0'\fR.
+.TP
+\fB\-\-dry\-run\fR
+Print what would be run: the \fBbsub\fR command line and the job script, or
+the command for \fB\-i\fR. Nothing is written or run; the checks are made as
+for a real run.
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print a short usage, with this site's defaults.
+.SH RUNNING
+One process runs Flow alone; more run it through an MPI launcher: the
+\fBlauncher\fR program with \fBlauncher_options\fR of where it runs,
+\fBlocal\fR for \fB\-i\fR (default \fBmpirun \-\-bind\-to none \-np\fR \fIN\fR),
+the scheduler's section (\fBlsf\fR) in jobs (the same, and \fB\-x
+OMP_NUM_THREADS=1\fR).
+.PP
+The launcher program is the one that belongs to the Flow version: the
+version's own \fBlauncher\fR in \fBrunflow.json\fR if it has one, else the
+section's. A path is used as it is; a name, e.g. \fBmpirun\fR, is found as the
+shell would after \fBmodule load\fR of that Flow:
+.IP 1. 4
+next to the version's \fBflow\fR, e.g. \fB/usr/lib64/openmpi/bin/mpirun\fR for
+a Flow from the Open MPI packages of Red Hat\-like systems;
+.IP 2. 4
+in \fBPATH\fR.
+.PP
+It is used by its absolute path, also in a job, and is checked first: its
+\fB\-\-version\fR must be the MPI Flow was built with (\fBflow
+\-\-build\-info\fR, \fBmpi=\fR), the same implementation and major.minor
+version, or nothing runs. A Flow that does not say its MPI is not checked.
+The first lines of \fIROOT\fB.LOG\fR name the launcher, how it was found and
+the check.
+.PP
+For a job, \fBrunflow\fR writes the job script to \fIROOT\fB.job\fR and runs,
+through the shell, in the deck's directory:
+.PP
+.RS
+.nf
+bsub \-n \fISLOTS\fR \-q \fIqueue\fR \-J \fIROOT\fR \-R 'span[hosts=1]' \-o \fIROOT\fR.%J.job.done \fIbsub_options\fR < \fIROOT\fR.job
+.fi
+.RE
+.PP
+\fBbsub\fR's answer (\fBJob <\fIID\fB> is submitted to queue <\fIqueue\fB>.\fR)
+appears as \fBbsub\fR prints it. The script goes on standard input, so LSF
+keeps its own copy: the next job may rewrite \fIROOT\fB.job\fR.
+.SH FILES
+Next to the deck:
+.TP
+\fIROOT\fB.LOG\fR, \fIROOT\fB.ERR\fR
+Flow's output and errors, written while it runs (\fBtail \-f\fR follows a
+run), and overwritten by the next run, as Flow's own files are. The first
+lines say where it runs, the Flow version, the processes and the command.
+.TP
+\fIROOT\fB.job\fR
+The script of the last job submitted.
+.TP
+\fIROOT\fB.\fIID\fB.job.done\fR
+LSF's report at the job's end.
+.TP
+\fIROOT\fB.runflow.log\fR
+Every run appended: date, user, host, runflow's version, the Flow version
+and executable, where it ran (here or LSF), the command, and its exit status
+(Flow's, or \fBbsub\fR's). Dry runs and runs refused before starting are not
+recorded.
+.SH RESERVOIR COUPLING
+A deck with \fBSLAVES\fR is a coupling master. A coupled run is several
+simulations at once: the master, which \fBrunflow\fR starts, and one slave
+per \fBSLAVES\fR record, which the master starts itself while it runs, each
+with the processes the record gives (item 5, \fBNUM_PE\fR).
+.PP
+\fBrunflow\fR therefore starts the master through MPI with \fB\-n\fR
+processes (default 1), and reserves room for all of them: \fB\-n\fR plus the
+\fBNUM_PE\fR of every slave.
+.PP
+For example, a master deck with two slaves:
+.PP
+.RS
+.nf
+SLAVES
+\-\- name     deck              host  directory  NUM_PE
+  'RES\-1'  'RC\-01_MOD1_HIST'  '*'   '../mod1'   4 /
+  'RES\-2'  'RC\-01_MOD2_HIST'  '*'   '../mod2'   1 /
+/
+.fi
+.RE
+.PP
+\fBrunflow RC\-01_MAST_HIST.DATA\fR runs three simulations:
+.PP
+.RS
+.nf
+master  RC\-01_MAST_HIST   1 process    (\-n 1, started by runflow)
+RES\-1   RC\-01_MOD1_HIST   4 processes  (started by the master)
+RES\-2   RC\-01_MOD2_HIST   1 process    (started by the master)
+                          \-\-
+                          6 slots
+.fi
+.RE
+.PP
+so it submits \fBbsub \-n 6\fR, and the job runs \fBmpirun \-np 1\fR for the
+master alone; the slaves take the other 5 slots. With \fB\-n 2\fR, the master
+has 2 processes and the job 7 slots.
+.PP
+If flow flags \fBSLAVES\fR as unsupported, such decks need
+\%\fB\-o\ '\-\-parsing\-strictness=low'\fR.
+.PP
+A run that cannot hold the slaves fails before it starts: here, more slots
+than this machine has cores; as a job on one host, more slots than
+\fBlsf.max_slots_per_host\fR, if set.
+.PP
+The deck is read by the
+.BR opmlaunchinfo (1)
+of the chosen Flow version: the one configured for it, else one in the same
+directory as its \fBflow\fR. Versions without one are read by runflow's own
+parser.
+.SH CONFIGURATION
+\fBrunflow\fR works without configuration: it finds \fBflow\fR in \fBPATH\fR,
+runs \fBmpirun\fR, and submits with \fBbsub\fR and LSF's default queue. A
+configuration file says what differs at a site, for a user or for a project.
+\fBflowversions\fR(1) reads the same files.
+.SS Files
+\fBrunflow.json\fR files are read in this order; each overrides the one
+before, and a missing file is skipped:
+.IP 1. 4
+the installation's: \fIsysconfdir\fB/opm/runflow.json\fR of the installation
+\fBrunflow\fR belongs to, e.g. \fB/opt/opm/2026.04/etc/opm/runflow.json\fR, or
+\fB/etc/opm/runflow.json\fR for an installation in \fB/usr\fR. The site's
+settings go here;
+.IP 2. 4
+the user's: \fB~/.runflow.json\fR;
+.IP 3. 4
+the current directory's: \fBrunflow.json\fR where \fBrunflow\fR is started,
+e.g. a project's settings next to its decks;
+.IP 4. 4
+\fB$RUNFLOW_CONFIG\fR, if set: it must exist; a relative path is taken from
+the current directory.
+.PP
+A file only needs the settings it changes; everything else stays as the
+earlier files, or the defaults, have it.
+.SS Format
+A file is one JSON object: settings are \fB"name": value\fR pairs, separated by
+commas, in braces. Strings are in double quotes; lists are in brackets; JSON has
+no comments. A setting \fBrunflow\fR does not know is reported as a warning and
+otherwise ignored, so that an older \fBrunflow\fR can read a newer site's file; a
+setting of the wrong type is an error that names the file.
+.SS Paths and programs
+.TP
+\fBprograms\fR (\fBflow\fR, \fBlaunchinfo\fR, \fBlauncher\fR, \fBbsub\fR)
+A value with a \fB/\fR is a path; a bare name, e.g. \fBmpirun\fR, is looked up
+when it is used: a launcher next to Flow first, then in \fBPATH\fR; the others
+in \fBPATH\fR.
+.TP
+\fBpaths and patterns\fR
+A path may start with \fB~\fR, the home directory; a relative path is relative
+to the directory of the file it is written in, not to where \fBrunflow\fR
+runs. In patterns, \fB*\fR, \fB?\fR and \fB[...]\fR match existing files as in
+the shell.
+.SS Settings
+Each setting with its type and default:
+.TP
+\fBdefault_version\fR (string; default: the first \fBflow\fR in \fBPATH\fR)
+The Flow version used without \fB\-v\fR: anything \fB\-v\fR accepts, e.g. a
+name from \fBversions\fR, an executable's name (\fBflowrc47\fR) or an OPM
+version (\fB2026.04\fR).
+.TP
+\fBscheduler\fR (string; default: \fB"lsf"\fR)
+The system jobs (runs without \fB\-i\fR) go to, whose section holds its
+settings. Only \fB"lsf"\fR for now.
+.TP
+\fBsearch\fR (object)
+Where versions that \fBversions\fR does not name are found. Its fields mirror
+those of a version, with patterns instead of values:
+.RS
+.TP
+\fBflow\fR (list of patterns; default: none)
+Every executable these patterns match is a Flow version, selectable by its
+file name, e.g. \fB["/project/res/bin/flow*"]\fR for a directory of
+\fBflowrc46\fR, \fBflowrc47\fR, ... Patterns match executables, not
+directories: for all of a directory's, end the pattern with \fB/flow*\fR.
+\fBflow\fR in \fBPATH\fR is always looked at too.
+.TP
+\fBpythonpath\fR (list of patterns; default: none)
+The \fBPYTHONPATH\fR directories of every version without its own
+\fBpythonpath\fR. In each pattern, \fB{name}\fR is the file name the version was
+found as (e.g. \fBflowrc47\fR). A pattern that matches one directory adds it;
+one that matches none is left out; one that matches several is left out with a
+warning. For example,
+\fB["/project/res/lib/python3.*/site\-packages/{name}"]\fR finds each
+version's bindings under the Python it was built for.
+.RE
+.TP
+\fBversions\fR (object; default: none)
+Named Flow versions: each key is the name given to \fB\-v\fR, each value an
+object with these fields:
+.RS
+.TP
+\fBflow\fR (program; required)
+The executable.
+.TP
+\fBlaunchinfo\fR (program)
+Its \fBopmlaunchinfo\fR(1), if it is not in the same directory as \fBflow\fR
+(as in build trees); without one, runflow reads coupled decks with its own
+parser.
+.TP
+\fBlauncher\fR (program)
+Its MPI launcher, if it is not the one the \fBlocal\fR or scheduler section
+finds (see RUNNING), e.g. because the one in \fBPATH\fR belongs to another MPI.
+The section's \fBlauncher_options\fR stay.
+.TP
+\fBpythonpath\fR (list of paths)
+Directories put before \fBPYTHONPATH\fR when this version runs, e.g. for
+Python in decks (PYACTION). It wins over \fBsearch.pythonpath\fR.
+.RE
+.TP
+\fBlocal\fR (object)
+Runs here (\fB\-i\fR):
+.RS
+.TP
+\fBlauncher\fR (program; default: \fB"mpirun"\fR)
+The MPI launcher.
+.TP
+\fBlauncher_options\fR (list of strings; default: \fB["\-\-bind\-to", "none", "\-np", "{np}"]\fR)
+Its options, one word each; see Launcher options.
+.RE
+.TP
+\fBlsf\fR (object)
+LSF jobs:
+.RS
+.TP
+\fBbsub\fR (program; default: \fB"bsub"\fR)
+The \fBbsub\fR to run, e.g. \fB"/global/bin/bsub"\fR.
+.TP
+\fBbsub_options\fR (list of strings; default: none)
+Options added to every \fBbsub\fR, one word each, e.g.
+\fB["\-P", "reservoir"]\fR.
+.TP
+\fBdefault_queue\fR (string; default: LSF's default queue)
+The queue of jobs without \fB\-q\fR.
+.TP
+\fBsingle_host\fR (true or false; default: \fBtrue\fR)
+Whether all of a job's slots must be on one host (\fBbsub \-R
+\(aqspan[hosts=1]\(aq\fR).
+.TP
+\fBmax_slots_per_host\fR (positive integer; default: no limit)
+The slots one host has. A job with \fBsingle_host\fR that needs more (e.g. a
+coupled run) is refused before it is submitted.
+.TP
+\fBlauncher\fR (program; default: \fB"mpirun"\fR)
+The MPI launcher inside jobs.
+.TP
+\fBlauncher_options\fR (list of strings; default: \fB["\-\-bind\-to", "none", "\-np", "{np}", "\-x", "OMP_NUM_THREADS=1"]\fR)
+Its options; see Launcher options.
+.RE
+.SS Launcher options
+\fBlauncher_options\fR are the launcher's options, one word each.
+\fB{np}\fR, which must be in them, becomes the number of processes to start;
+\fB{slots}\fR, if used, the slots the job reserved. For example, to start
+Open MPI 5 on one host with its traffic on the loopback interface, which
+coupled runs may need, keeping the site's options:
+.PP
+.RS
+.nf
+"local": { "launcher_options": ["@inherit", "\-\-mca", "btl_tcp_if_include", "lo"] }
+.fi
+.RE
+.SS How files combine
+A setting a file does not give stays as the earlier files had it. A setting
+it gives is combined with the earlier one by its type:
+.TP
+\fBobjects\fR
+merge by key: the file, \fBsearch\fR, \fBversions\fR, \fBlocal\fR, \fBlsf\fR. A
+user adds a version, or a project changes the queue, without repeating the
+site's other settings.
+.TP
+\fBvalues\fR
+replace the earlier value, e.g. \fBdefault_version\fR, \fBlsf.launcher\fR.
+.TP
+\fBlists\fR
+replace the earlier list, e.g. \fBsearch.flow\fR, \fBlsf.bsub_options\fR. An
+entry \fB"@inherit"\fR stands for the earlier list, at the place it is put, as
+\fB$PATH\fR does in \fBPATH="$HOME/bin:$PATH"\fR: with the site's
+\fB["/project/res/bin/flow*"]\fR, a user's \fB["~/opm/builds/*/flow",
+"@inherit"]\fR searches the user's builds, then the site's. In the first file
+that gives the setting, \fB"@inherit"\fR stands for nothing; a second one in a
+list is ignored, with a warning.
+.PP
+One exception: a version in \fBversions\fR replaces the earlier version of the
+same name whole, not field by field, since its fields describe one executable
+together.
+.SS Examples
+A user's \fB~/.runflow.json\fR that adds an own build, selected with
+\fB\-v dev\fR, and keeps the site's versions:
+.PP
+.RS
+.nf
+{
+  "versions": {
+    "dev": { "flow": "~/opm/build/opm\-simulators/bin/Release/flow",
+             "launchinfo": "~/opm/build/opm\-common/bin/Release/opmlaunchinfo" }
+  }
+}
+.fi
+.RE
+.PP
+A site file for an LSF cluster that does what the legacy runflow script did:
+a directory of Flow versions, each with its Python bindings under the Python
+it was built for, Open MPI's \fBmpirun\fR, and \fBbsub\fR in
+\fB/global/bin\fR:
+.PP
+.RS
+.nf
+{
+  "default_version": "flowrc45",
+  "search": {
+    "flow":       ["/project/res/x86_64_RH_8/bin/flow*"],
+    "pythonpath": ["/project/res/x86_64_RH_8/lib/python3.*/site\-packages/{name}"]
+  },
+  "local": { "launcher": "/usr/lib64/openmpi/bin/mpirun" },
+  "lsf": {
+    "bsub": "/global/bin/bsub",
+    "default_queue": "daily",
+    "max_slots_per_host": 128,
+    "launcher": "/usr/lib64/openmpi/bin/mpirun"
+  }
+}
+.fi
+.RE
+.PP
+A site with OPM's Open MPI packages of a Red Hat\-like system; the
+\fBmpirun\fR next to Flow is found by itself:
+.PP
+.RS
+.nf
+{
+  "search": { "flow": ["/usr/lib64/openmpi/bin/flow*"] },
+  "default_version": "2026.04"
+}
+.fi
+.RE
+.PP
+A project's \fBrunflow.json\fR next to its decks, with its own queue and an
+account for every job:
+.PP
+.RS
+.nf
+{
+  "lsf": { "default_queue": "long", "bsub_options": ["@inherit", "\-P", "field\-x"] }
+}
+.fi
+.RE
+.SS Checking a configuration
+\fBflowversions\fR lists the versions the configuration gives, and
+\fBflowversions show\fR \fIversion\fR what is known about one, including its
+launcher and \fBopmlaunchinfo\fR. \fBrunflow \-\-dry\-run\fR \fIdeck\fR shows
+what would run or be submitted, without doing it. Both print the warnings of
+the files they read, e.g. unknown settings.
+.SH EXIT STATUS
+With \fB\-i\fR, Flow's exit status. For a job, \fBbsub\fR's (0 when
+submitted; 127 if \fBbsub\fR is not found). Otherwise 1 if the Flow version is
+not found, or for any other error (with its reason); 2 for wrong options; 4
+without exactly one deck, or if the deck does not exist.
+.SH SEE ALSO
+.BR flowversions (1),
+.BR opmlaunchinfo (1),
+.BR bsub (1)
